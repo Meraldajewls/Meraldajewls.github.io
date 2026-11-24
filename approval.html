@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Sales Approval OTP</title>
+<style>
+  :root { --bg:#f4f5f7; --card:#ffffff; --text:#1d2330; --muted:#667085; --line:#e4e7ec; --accent:#0b6bcb; --otp-bg:#eef5fd; --warn:#b42318; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1218; --card:#181c24; --text:#e6e8ec; --muted:#98a2b3; --line:#2a303b; --accent:#5aa6f0; --otp-bg:#16263a; --warn:#f97066; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  main { max-width:440px; margin:0 auto; padding:24px 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; }
+  h1 { font-size:18px; margin:0 0 16px; }
+  .otp { background:var(--otp-bg); border-radius:10px; padding:14px; text-align:center; margin-bottom:18px; }
+  .otp small { display:block; color:var(--muted); font-size:13px; }
+  .otp b { display:block; font-size:34px; letter-spacing:8px; color:var(--accent); font-variant-numeric:tabular-nums; }
+  h2 { font-size:14px; margin:18px 0 8px; color:var(--accent); }
+  main { max-width:640px; }
+  .tbl { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--line); border-radius:10px; }
+  table { border-collapse:collapse; width:100%; font-size:14px; font-variant-numeric:tabular-nums; }
+  th, td { padding:8px 10px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; font-size:12px; background:var(--otp-bg); }
+  td { font-weight:600; }
+  .l { text-align:left; }
+  tbody tr:last-child td { border-bottom:0; }
+  dl { margin:0; }
+  .row { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid var(--line); }
+  dt { color:var(--muted); }
+  dd { margin:0; font-weight:600; text-align:right; font-variant-numeric:tabular-nums; word-break:break-word; }
+  p.note { margin:18px 0 0; font-size:14px; color:var(--muted); }
+  .error { color:var(--warn); }
+</style>
+</head>
+<body>
+<main>
+  <div class="card" id="card">
+    <h1>Sales Approval OTP</h1>
+    <div id="content"><p class="error">Loading…</p></div>
+  </div>
+</main>
+<script>
+// Added by Naiju on 18-11-2026 : sales approval OTP page.
+// The details come in the link after '#' as base64url JSON (built in Formcontrols.SendDiscountOTPToApprovers).
+// The part after '#' is never sent to the server - nothing is stored here.
+(function () {
+  var box = document.getElementById('content');
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+  try {
+    var hash = location.hash.replace(/^#/, '');
+    if (!hash) throw new Error('empty');
+    var b64 = hash.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var d = JSON.parse(new TextDecoder('utf-8').decode(bytes));
+
+    function rowsHtml(rows) {
+      var h = '<dl>';
+      rows.forEach(function (r) {
+        if (r[1] != null && r[1] !== '') h += '<div class="row"><dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd></div>';
+      });
+      return h + '</dl>';
+    }
+    var html = '<div class="otp"><small>OTP</small><b>' + esc(d.otp) + '</b></div>';
+    html += rowsHtml([['Salesperson', d.sp], ['Branch', d.br]]);
+    // Modified by Naiju on 18-11-2026 : every line item - it = [[code, sales value, cost, tag price, disc amt, disc %], ...]
+    // Modified by Naiju on 18-11-2026 : items row wise in a table (one row per item)
+    if (d.it && d.it.length) {
+      html += '<h2>Items (' + d.it.length + ')</h2><div class="tbl"><table><thead><tr>'
+        + '<th class="l">#</th><th class="l">Item</th><th>Sales Value</th><th>Cost</th><th>Tag Price</th><th>Disc Amt</th><th>Disc %</th>'
+        + '</tr></thead><tbody>';
+      d.it.forEach(function (x, n) {
+        html += '<tr><td class="l">' + (n + 1) + '</td><td class="l">' + esc(x[0]) + '</td>'
+          + '<td>' + esc(x[1]) + '</td><td>' + esc(x[2]) + '</td><td>' + esc(x[3]) + '</td>'
+          + '<td>' + esc(x[4]) + '</td><td>' + esc(x[5]) + '%</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      // Added by Naiju on 19-11-2026
+      html += '<h2>Total</h2>' + rowsHtml([
+        ['Sales Value', d.ta],
+        ['Discount Amount', d.da],
+        ['Discount', d.dp != null && d.dp !== '' ? d.dp + '%' : '']
+      ]);
+    } else {
+      html += rowsHtml([
+        ['Sales Value', d.ta],
+        ['Discount Amount', d.da],
+        ['Discount', d.dp != null && d.dp !== '' ? d.dp + '%' : '']
+      ]);
+    }
+    html += '<p class="note">Please verify and share the OTP to approve this sale.</p>';
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '<p class="error">This approval link is incomplete or invalid. Please use the OTP in the SMS.</p>';
+  }
+})();
+</script>
+</body>
+</html>
